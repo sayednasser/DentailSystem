@@ -53,7 +53,7 @@ export const bootstrap = async () => {
     app.get("/", (req, res) => {
         res.status(200).json("Hello world");
     })
- 
+
     app.get("/", (req, res) => {
         res.json({ message: "API Running" });
     });
@@ -63,7 +63,9 @@ export const bootstrap = async () => {
     })
     app.use((GlobalErrorHandler))
 
-    app.listen(PORT, () => {
-        console.log(`Server is running on port ${PORT}`);
+    app.listen(PORT, "0.0.0.0", () => {
+        console.log(
+            `✔😎 Server is perfectly running on port ${PORT}`
+        );
     });
 } 

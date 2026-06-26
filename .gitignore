@@ -8,4 +8,6 @@ uploads/
 config.env.*
 config.env.development
 config.env.production
-src.seed.admin.seed
+src/seed/
+*.seed.js
+*.seed.ts

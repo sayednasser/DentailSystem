@@ -8,4 +8,4 @@ uploads/
 config.env.*
 config.env.development
 config.env.production
-src.seed
+src.seed.admin.seed

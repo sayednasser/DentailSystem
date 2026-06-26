@@ -2,7 +2,7 @@ import joi from "joi"
 import { Types } from "mongoose"
 export const generalValidationFields = {
         email: joi.string().email({ minDomainSegments: 2, maxDomainSegments: 3, tlds: { allow: ['com', 'net', 'edu'] } }),
-        password: joi.string().pattern(/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*\W).{8,16}$/),
+        password: joi.string().max(30).min(2),
         confirmPassword: joi.string().required().valid(joi.ref("password")),
         userName: joi.string().pattern(new RegExp(/^([A-Za-z]{2,25}|[\u0600-\u06FF]{2,25})\s([A-Za-z]{2,25}|[\u0600-\u06FF]{2,25})$/)),
         otp: joi.string().pattern(new RegExp(/^\d{6}$/)),

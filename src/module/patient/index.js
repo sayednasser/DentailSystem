@@ -1,0 +1,1 @@
+export {default as patientRouter} from "./patient.controller.js";

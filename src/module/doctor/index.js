@@ -1,0 +1,1 @@
+export {default as doctorRouter} from "./doctor.controller.js";

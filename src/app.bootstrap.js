@@ -53,7 +53,10 @@ export const bootstrap = async () => {
     app.get("/", (req, res) => {
         res.status(200).json("Hello world");
     })
-
+ 
+    app.get("/", (req, res) => {
+        res.json({ message: "API Running" });
+    });
 
     app.all("{/*dummy}", (req, res) => {
         res.status(404).json("Route not found");

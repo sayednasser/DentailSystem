@@ -16,7 +16,7 @@ export const createDoctor = {
 }
 export const createReception = {
     body: joi.object().keys({
-        userName: generalValidationFields.userName.required(),
+        fullName: generalValidationFields.userName.required(),
         phone: generalValidationFields.phone,
         role: generalValidationFields.role.required(),
         age: generalValidationFields.age,

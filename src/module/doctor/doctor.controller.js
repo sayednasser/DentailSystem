@@ -8,7 +8,7 @@ import {
   getDoctorDashboard,
   getDoctorProfile,
   updateDoctorProfile
-} from "./doctor.service.js";
+} from "./Doctor.service.js";
 
 import * as validators from "./doctor.validation.js";
 import { endpoint } from "./doctor.authorization.js";

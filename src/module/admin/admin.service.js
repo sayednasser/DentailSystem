@@ -34,7 +34,7 @@ export const createDoctor = async (inputs, admin) => {
 // 🧾 CREATE RECEPTION
 // ================================
 export const createReception = async (inputs, admin) => {
-  const { email, password, userName } = inputs;
+  const { email, password, fullName , phone, age,} = inputs;
 
   const exist = await userModel.findOne({ email });
   if (exist) throw ConflictException({ message: "Email already exists" });
@@ -42,11 +42,13 @@ export const createReception = async (inputs, admin) => {
   const hashedPassword = await hashPassword({ plainText: password });
 
   const createReception = await userModel.create({
-    userName,
+    fullName,
     email,
-    password: hashedPassword,
+    password: hashedPassword, 
     role: RoleEnum.Reception,
-    createdBy: admin._id
+    createdBy: admin._id,
+    phone,
+    age
   });
 
   return await createReception.save();

@@ -1,4 +1,4 @@
-import { userModel, patientModel, doctorModel } from "../../DB/model/index.js";
+import { userModel, patientModel, doctorModel, expenseModel } from "../../DB/model/index.js";
 import { ConflictException, hashPassword, RoleEnum, NotFoundException } from "../../common/index.js";
 
 // ================================
@@ -34,7 +34,7 @@ export const createDoctor = async (inputs, admin) => {
 // 🧾 CREATE RECEPTION
 // ================================
 export const createReception = async (inputs, admin) => {
-  const { email, password, fullName , phone, age,} = inputs;
+  const { email, password, fullName, phone, age, } = inputs;
 
   const exist = await userModel.findOne({ email });
   if (exist) throw ConflictException({ message: "Email already exists" });
@@ -44,7 +44,7 @@ export const createReception = async (inputs, admin) => {
   const createReception = await userModel.create({
     fullName,
     email,
-    password: hashedPassword, 
+    password: hashedPassword,
     role: RoleEnum.Reception,
     createdBy: admin._id,
     phone,
@@ -57,10 +57,96 @@ export const createReception = async (inputs, admin) => {
 // ================================
 // 👥 USERS
 // ================================
-export const getAllUsers = async () => {
-  return await userModel.find({ role: { $in: [RoleEnum.Doctor, RoleEnum.Reception] } }).select("-password");
-};
 
+export const getAllUsers = async () => {
+  const users = await userModel
+    .find({
+      role: { $in: [RoleEnum.Doctor, RoleEnum.Reception] }
+    })
+    .select("-password")
+    .lean();
+
+  const doctors = await doctorModel.find().lean();
+
+  const doctorMap = new Map(
+    doctors.map(d => [d.userId.toString(), d])
+  );
+  console.log(doctors);
+  console.log(users);
+
+  return users.map(user => ({
+    ...user,
+    specialization:
+      doctorMap.get(user._id.toString())?.specialization || null,
+    doctorPercentage:
+      doctorMap.get(user._id.toString())?.doctorPercentage || 40,
+  }));
+};
+// ================================
+// 👥 income By Date
+// ================================
+
+export const getIncomeByDate = async (date) => {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(date);
+  end.setHours(23, 59, 59, 999);
+
+  // إجمالي الفلوس المدفوعة في اليوم
+  const incomeResult = await patientModel.aggregate([
+    {
+      $unwind: "$payment"
+    },
+    {
+      $match: {
+        "payment.createdAt": {
+          $gte: start,
+          $lte: end
+        }
+      }
+    },
+    {
+      $group: {
+        _id: null,
+        totalIncome: { $sum: "$payment.amount" }
+      }
+    }
+  ]);
+
+  // عدد المرضى المسجلين في اليوم
+  const patientsCount = await patientModel.countDocuments({
+    createdAt: {
+      $gte: start,
+      $lte: end
+    }
+  });
+
+  return {
+    totalIncome: incomeResult[0]?.totalIncome || 0,
+    patientsCount
+  };
+};
+// ================================
+// 👥 delete USer
+// ================================
+
+export const deleteUser = async (id) => {
+  const user = await userModel.findById(id);
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  // منع حذف الأدمن
+  if (user.role === RoleEnum.Admin) {
+    throw new Error("Cannot delete admin");
+  }
+
+  await user.deleteOne();
+
+  return user;
+};
 // ================================
 // 📊 STATS
 // ================================
@@ -136,15 +222,17 @@ export const getDoctorPerformance = async () => {
         foreignField: "_id",
         as: "user"
       }
-    }, { 
+    }, {
       $unwind: "$user"
     },
     {
-   
+
       $project: {
         doctorName: {
           $concat: [
             { $ifNull: ["$user.firstName", ""] },
+            " ",
+             { $ifNull: ["$user.middleName", ""] },
             " ",
             { $ifNull: ["$user.lastName", ""] }
           ]
@@ -160,15 +248,13 @@ export const getDoctorPerformance = async () => {
 
         doctorPercentage: "$doctor.doctorPercentage",
 
-        // إجمالي حق الدكتور من كل الحالات
         doctorTotalRights: {
-          $multiply: [
+          $multiply: [ 
             "$totalCost",
             { $divide: ["$doctor.doctorPercentage", 100] }
           ]
         },
 
-        // المستحق حالياً للدكتور من الفلوس المدفوعة
         doctorReceived: {
           $multiply: [
             "$revenue",
@@ -176,7 +262,6 @@ export const getDoctorPerformance = async () => {
           ]
         },
 
-        // المتبقي للدكتور من المبالغ غير المحصلة
         doctorRemaining: {
           $multiply: [
             {
@@ -191,14 +276,14 @@ export const getDoctorPerformance = async () => {
           ]
         }
       }
-    
+
     }
 
   ])
 
-console.log(JSON.stringify(result, null, 2))
+  console.log(JSON.stringify(result, null, 2))
 
-return result
+  return result
 }
 
 // ================================
@@ -248,4 +333,52 @@ export const getAdminDashboard = async () => {
   ]);
 
   return { stats, recentPatients, doctorPerformance, monthlyRevenue, highDebtPatients, recentPayments };
+};
+
+
+
+export const createExpense = async (inputs, user) => {
+  const {
+    title,
+    description,
+    category,
+    amount,
+    type,
+    date,
+  } = inputs;
+
+  const expense = await expenseModel.create({
+    title,
+    description,
+    category,
+    amount: Number(amount),
+    type,
+    date: date || new Date(),
+    createdBy: user._id,
+  });
+
+  return expense;
+};
+export const getExpenses = async () => {
+  const expenses = await expenseModel
+    .find()
+    .populate("createdBy", "fullName")
+    .sort({ date: -1 });
+
+  return expenses;
+};
+export const deleteExpense = async (expenseId) => {
+  const expense = await expenseModel.findById(expenseId);
+
+  if (!expense) {
+    throw NotFoundException({
+      message: "Expense not found",
+    });
+  }
+
+  await expense.deleteOne();
+
+  return {
+    message: "Expense deleted successfully",
+  };
 };

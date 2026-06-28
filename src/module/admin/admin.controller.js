@@ -35,6 +35,7 @@ router.post(
   }
 );
 
+
 // ================================
 // 👥 GET ALL USERS
 // ================================
@@ -47,9 +48,38 @@ router.get(
     return successResponse({ res, data });
   }
 );
-
 // ================================
-// 📊 STATS
+// 👥 Delete USERS
+// ================================
+
+router.delete(
+  "/users/:id",
+  authentication(),
+  authorization(endpoint.deleteUser),
+  async (req, res) => {
+    const user = await adminService.deleteUser(req.params.id);
+    return successResponse({
+      res, message: "User deleted successfully", data: user
+    });
+  }
+);
+// ================================
+// 👥 income by date
+// ================================
+router.get(
+  "/income",
+  authentication(),
+  async (req, res) => {
+    const data = await adminService.getIncomeByDate(req.query.date);
+    console.log({ data })
+    return successResponse({
+      res,
+      data
+    });
+  }
+);
+// ================================
+// 📊 STATS 
 // ================================
 router.get(
   "/stats",
@@ -136,6 +166,56 @@ router.get(
   async (req, res) => {
     const data = await adminService.getRecentPayments();
     return successResponse({ res, data });
+  }
+);
+
+// ================================
+//  Create Expense
+// ================================
+router.post(
+  "/expenses",
+  authentication(),
+  authorization(endpoint.manageExpenses), 
+  async (req, res) => {
+    const data = await adminService.createExpense(req.body, req.user);
+
+    return successResponse({
+      res,
+      status: 201,
+      data,
+    });
+  } 
+);
+// ================================
+//  get Expense
+// ================================
+router.get(
+  "/expenses",
+  authentication(),
+  authorization(endpoint.getExpenses),
+  async (req, res) => {
+    const data = await adminService.getExpenses();
+
+    return successResponse({
+      res,
+      data,
+    });
+  }
+);
+// ================================
+//  Delete Expense
+// ================================
+router.delete(
+  "/expenses/:id",
+  authentication(),
+  authorization(endpoint.manageExpenses),
+  async (req, res) => {
+    const data = await adminService.deleteExpense(req.params.id);
+
+    return successResponse({
+      res,
+      data,
+    });
   }
 );
 

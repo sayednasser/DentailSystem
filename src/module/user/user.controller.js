@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { successResponse, TokenTypeEnum } from "../../common/index.js";
-import { logout, profile, profileCoverPicture, profilePicture, rotateToken, shareProfile, updatePassword } from "./user.service.js";
+import { logout, profile, profileCoverPicture, profilePicture, rotateToken, shareProfile, updatePassword,updateProfile } from "./user.service.js";
 import { uploadCloud } from "../../common/types/multer/cloud.multer.js";
 import { filedValidation } from "../../common/types/multer/multer.validation.js";
 import { authentication } from "../../middleware/authentication.middleware.js";
@@ -9,7 +9,6 @@ import * as validators from "./user.validation.js"
 const router = Router();
 
 router.get("/", authentication(), async (req, res) => {
-    console.log(req.user)
     const data = await profile(req.user)
     return successResponse({ res, status: 200, data });
 });
@@ -42,5 +41,11 @@ router.get("/:userId/share", validation(validators.shareProfile)
 router.get("/rotate-token", authentication(TokenTypeEnum.refresh), async (req, res, next) => {
     const user = await rotateToken(req.user, req.decode, `${req.protocol}://${req.host}`)
     return successResponse({ res, data: { user } })
+})
+
+router.post("/update-profile", authentication(), async (req, res, next) => {
+    console.log(req.body);
+    const account = await updateProfile(req.body, req.user, `${req.protocol}://${req.host}`)
+    return successResponse({ res, data: account })
 })
 export default router;

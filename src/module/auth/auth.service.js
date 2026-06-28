@@ -80,12 +80,12 @@ export const requestForgotPassword = async (inputs) => {
 };
 export const verifyForgotPassword = async (inputs) => {
 
-    const { email, otp } = inputs;
+    const { email, code } = inputs;
     const hashOtp = await get(otpKey({ email, subject: emailEnum.forgotPassword }))
     if (!hashOtp) {
         throw NotFoundException({ message: "Expired Otp" })
     }
-    if (!await comparePassword({ plainText: otp, hashText: hashOtp })) {
+    if (!await comparePassword({ plainText: code, hashText: hashOtp })) {
         throw ConflictException({ message: "invalid otp" })
     }
     return;
@@ -93,10 +93,10 @@ export const verifyForgotPassword = async (inputs) => {
 };
 export const resatForgotPasswordCode = async (inputs) => {
 
-    const { email, otp, password } = inputs;
+    const { email, code, password } = inputs;
 
-    await verifyForgotPassword({ email, otp })
-    const user = await userModel.findOne({ email, confirmEmail: { $exists: true }, provider: ProviderEnum.System })
+    await verifyForgotPassword({ email, code })
+    const user = await userModel.findOne({ email,  provider: ProviderEnum.System })
     if (!user) {
         throw NotFoundException({ message: "account not found " })
     }

@@ -4,7 +4,8 @@ import { GenderEnum, ProviderEnum, RoleEnum } from "../../common/index.js";
 const userSchema = new Schema({
 
     firstName: { type: String, required: true, min: 3, max: 25 },
-    lastName: { type: String, required: true, min: 3, max: 25 },
+    middleName: { type: String, required: false, min: 3, max: 25 },
+    lastName: { type: String, required: false, min: 3, max: 25 },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: function () { return this.provider == ProviderEnum.System } },
     confirmEmail: { type: Date },
@@ -13,9 +14,9 @@ const userSchema = new Schema({
         enum: Object.values(RoleEnum),
         default: RoleEnum.Reception,
     },
-    profilePicture: {
+    profilePicture: { 
         secure_url: String,
-        public_id: String
+        public_id: String 
 
     },
     profileCoverPicture: {
@@ -56,13 +57,17 @@ const userSchema = new Schema({
 
 })
 
-userSchema.virtual("fullName").set(function (value) {
-    const [firstName, lastName] = value.split(" ")
-    this.set({ firstName, lastName })
-}).get(function () {
-    return this.firstName + " " + this.lastName
-})
+userSchema.virtual("fullName")
+    .get(function () {
+        return `${this.firstName || ""} ${this.middleName || ""} ${this.lastName || ""}`.trim();
+    })
+    .set(function (value) {
+        const [firstName, middleName,lastName] = value.split(" ");
+        this.firstName = firstName;
+        this.middleName = middleName;
+        this.lastName = lastName;
 
+    });
 
 
 export const userModel = model.User || model("User", userSchema)

@@ -99,19 +99,21 @@ router.patch(
 // =======================================
 // ADD PAYMENT
 // =======================================
-router.patch(
-  "/:patientId/payment",
-  authentication(),
-  validation(validators.addPayment),
-  async (req, res) => {
-    const data = await service.addPayment(req.params.patientId, req.body.amount, req.body.note, req.user);
-    return successResponse({ res, data });
-  }
-);
+router.patch("/:id/increase-total", authentication(),async (req, res) => {
+  const { addAmount } = req.body;
+  const result = await service.increaseTotalCost(req.params.id, addAmount);
+  res.json(result);
+});
+
+router.patch("/:patientId/payment",authentication(), async (req, res) => {
+  const { amount, note } = req.body;
+  const result = await service.addPayment(req.params.patientId, amount, note, req.user);
+  res.json(result);
+}); 
 
 // =======================================
 // UPDATE DIAGNOSIS
-// =======================================
+// ======================================= 
 router.patch(
   "/:patientId/diagnosis",
   authentication(),

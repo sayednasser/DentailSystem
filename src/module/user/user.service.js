@@ -3,19 +3,20 @@ import { comparePassword, ConflictException, createLoginCredentials, decrypt, de
 import { userModel } from "../../DB/model/user.model.js";
 
 
-export const profile = async (user) => {
-    return user
-}
-export const shareProfile = async (userId) => {
-    const profile = await userModel.findOne({ _id: userId }).select(['name', 'firstName', 'lastName', 'email', 'phone', 'profilePicture', 'profileCoverPicture'])
-    if (!profile) {
-        throw NotFoundException({ message: "user is not found" })
+    export const profile = async (user) => {
+        return user
     }
-    if (profile.phone) {
-        profile.phone = await decrypt(profile.phone)
+    export const shareProfile = async (userId) => {
+        const profile = await userModel.findOne({ _id: userId }).select(['name', 'firstName','middleName', 'lastName', 'email', 'phone', 'profilePicture', 'profileCoverPicture'])
+        if (!profile) {
+            throw NotFoundException({ message: "user is not found" })
+        }
+        console.log(profile);
+        if (profile.phone) {
+            profile.phone = await decrypt(profile.phone)
+        }
+        return profile
     }
-    return profile
-}
 export const profilePicture = async (file, user) => {
     if (user.profilePicture?.public_id) {
         await deleteFile(user.profilePicture.public_id)
@@ -89,8 +90,8 @@ export const updatePassword = async ({ oldPassword, password }, user, issuer) =>
             });
         }
     }
-    user.oldPassword.push(user.password)
-    if (user.oldPassword.length > 3) {
+    user.oldPassword.push(user.password) 
+    if (user.oldPassword.length > 3) { 
         user.oldPassword.shift();
     }
     user.password = await hashPassword({ plainText: password })
@@ -100,4 +101,40 @@ export const updatePassword = async ({ oldPassword, password }, user, issuer) =>
     return await createLoginCredentials(user, issuer)
 
 
-}
+};
+export const updateProfile = async (inputs, user) => {
+    const { fullName, phone } = inputs;
+
+    const updateData = {};
+
+    if (fullName) {
+        const parts = fullName.trim().split(/\s+/);
+
+        updateData.firstName = parts[0] || "";
+        updateData.middleName = parts.length > 2 ? parts.slice(1, -1).join(" ") : "";
+        updateData.lastName = parts.length > 1 ? parts[parts.length - 1] : "";
+    }
+
+    if (phone !== undefined) {
+        updateData.phone = phone ;
+    }
+
+    const updatedUser = await userModel.findByIdAndUpdate(
+        user._id,
+        { $set: updateData },
+        {
+            new: true,
+            runValidators: true
+        }
+    );
+
+    const result = updatedUser.toObject();
+
+   
+
+    return result;
+};
+
+
+
+

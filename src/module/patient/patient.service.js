@@ -17,13 +17,13 @@ export const createPatient = async (inputs, user) => {
     fullName, address, phone, age, notes, gender, totalCost,
     costPaid, doctorId, diagnosis, treatment, visitDate, nextVisit, status
   } = inputs;
-const [firstName, ...rest] = fullName.trim().split(" ");
-const lastName = rest.join(" ");
+  const [firstName, , middleName, ...rest] = fullName.trim().split(" ");
+  const lastName = rest.join(" ");
 
-const checkPatient = await patientModel.findOne({
-  firstName,
-  lastName
-});
+  const checkPatient = await patientModel.findOne({
+    firstName,
+    middleName,
+  });
   // const checkPatient = await patientModel.findOne({ fullName });
   if (checkPatient) throw ConflictException({ message: "Patient already exists" });
   if (Number(costPaid) > Number(totalCost)) {
@@ -34,11 +34,33 @@ const checkPatient = await patientModel.findOne({
   if (!doctor) throw NotFoundException({ message: "Doctor not found" });
 
   return await patientModel.create({
-    fullName, address, phone, age, notes, gender, doctorId,
-    diagnosis, treatment, status, visitDate, nextVisit,
+    fullName,
+    address,
+    phone,
+    age,
+    notes,
+    gender,
+    doctorId,
+    diagnosis,
+    treatment,
+    status,
+    visitDate,
+    nextVisit,
     createdBy: user._id,
+
     totalCost: Number(totalCost),
-    costPaid: Number(costPaid), status
+    costPaid: Number(costPaid),
+
+    payment:
+      Number(costPaid) > 0
+        ? [
+          {
+            amount: Number(costPaid),
+            createdBy: user._id,
+            note: "الدفعة الأولى",
+          },
+        ]
+        : [],
   });
 };
 
@@ -47,27 +69,72 @@ const checkPatient = await patientModel.findOne({
 // =======================================
 export const updatePatient = async (patientId, inputs, user) => {
   const patient = await patientModel.findById(patientId);
-  if (!patient) throw NotFoundException({ message: "Patient not found" });
+
+  if (!patient) {
+    throw NotFoundException({
+      message: "Patient not found"
+    });
+  }
 
   const checkPatient = await patientModel.findOne({
     phone: inputs.phone,
     _id: { $ne: patientId }
   });
-  if (checkPatient) throw ConflictException({ message: "Patient already exists" });
 
-  const updateData = { ...inputs, updatedBy: user._id };
-
-  if (inputs.totalCost !== undefined && inputs.costPaid !== undefined) {
-    if (Number(inputs.costPaid) > Number(inputs.totalCost)) {
-      throw ConflictException({ message: "Cost paid can't be greater than total cost" });
-    }
-    updateData.totalCost = Number(inputs.totalCost);
-    updateData.costPaid = Number(inputs.costPaid);
+  if (checkPatient) {
+    throw ConflictException({
+      message: "Patient already exists"
+    });
   }
 
-  return await patientModel.findByIdAndUpdate(patientId, updateData, { new: true });
-};
+  const updateData = {
+    ...inputs,
+    updatedBy: user._id
+  };
 
+  let paymentDifference = 0;
+
+  if (
+    inputs.totalCost !== undefined &&
+    inputs.costPaid !== undefined
+  ) {
+    const newTotalCost = Number(inputs.totalCost);
+    const newCostPaid = Number(inputs.costPaid);
+
+    if (newCostPaid > newTotalCost) {
+      throw ConflictException({
+        message: "Cost paid can't be greater than total cost"
+      });
+    }
+
+    paymentDifference =
+      newCostPaid - Number(patient.costPaid || 0);
+
+    updateData.totalCost = newTotalCost;
+    updateData.costPaid = newCostPaid;
+  }
+
+  const updateQuery = {
+    $set: updateData
+  };
+
+  if (paymentDifference > 0) {
+    updateQuery.$push = {
+      payments: {
+        amount: paymentDifference,
+        note: "Payment added from update",
+        createdBy: user._id,
+        createdAt: new Date()
+      }
+    };
+  }
+
+  return await patientModel.findByIdAndUpdate(
+    patientId,
+    updateQuery,
+    { new: true }
+  );
+};
 // =======================================
 // ALL PATIENTS FOR DOCTOR
 // =======================================
@@ -112,30 +179,70 @@ export const deletePatient = async (patientId) => {
 };
 
 // =======================================
-// ADD PAYMENT (Atomic Operation)
+// 1) INCREASE TOTAL COST (without touching old value)
 // =======================================
-export const addPayment = async (patientId, amount, note, user) => {
-  const patient = await patientModel.findById(patientId);
-  if (!patient) throw NotFoundException({ message: "Patient not found" });
+export const increaseTotalCost = async (patientId, addAmount) => {
+  const add = Number(addAmount || 0);
 
-  if ((patient.costPaid + Number(amount)) > patient.totalCost) {
-    throw ConflictException({ message: "Payment exceeds total cost" });
+  if (add <= 0) {
+    throw ConflictException({ message: "Invalid amount to add" });
   }
 
-  // تحديث الـ payments والـ costPaid في عملية واحدة
-  return await patientModel.findByIdAndUpdate(
-    patientId,
+  const updated = await patientModel.findOneAndUpdate(
+    { _id: patientId },
+    { $inc: { totalCost: add } },
+    { new: true }
+  );
+
+  if (!updated) {
+    throw ConflictException({ message: "Patient not found" });
+  }
+
+  return updated;
+};
+
+// =======================================
+// 2) ADD PAYMENT (installment), validated against CURRENT totalCost only
+// =======================================
+export const addPayment = async (patientId, amount, note, user) => {
+  const value = Number(amount || 0);
+
+  if (value <= 0) {
+    throw ConflictException({ message: "Invalid payment amount" });
+  }
+
+  const updated = await patientModel.findOneAndUpdate(
     {
-      $push: { payments: { amount: Number(amount), note, createdBy: user._id, createdAt: new Date() } },
-      $inc: { costPaid: Number(amount) }
+      _id: patientId,
+      $expr: {
+        $lte: [
+          { $add: ["$costPaid", value] },
+          "$totalCost"
+        ]
+      }
+    },
+    {
+      $push: {
+        payment: {
+          amount: value,
+          note: note || "",
+          createdBy: user._id,
+          createdAt: new Date()
+        }
+      },
+      $inc: { costPaid: value }
     },
     { new: true }
   );
+
+  if (!updated) {
+    throw ConflictException({
+      message: "Payment exceeds remaining total cost"
+    });
+  }
+
+  return updated;
 };
-
-
-
-
 // =======================================
 // SEARCH PATIENT
 // =======================================

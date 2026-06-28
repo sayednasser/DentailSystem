@@ -10,6 +10,7 @@ const doctorSchema = new mongoose.Schema(
     },
 
     firstName: { type: String },
+    middleName: { type: String },
     lastName: { type: String },
 
     specialization: {
@@ -42,12 +43,14 @@ const doctorSchema = new mongoose.Schema(
 
 doctorSchema.virtual("fullName")
   .get(function () {
-    return `${this.firstName || ""} ${this.lastName || ""}`.trim();
+    return `${this.firstName || ""} ${this.middleName || ""} ${this.lastName || ""}`.trim();
   })
   .set(function (value) {
-    const [firstName, lastName] = value.split(" ");
+    const [firstName, middleName, lastName] = value.split(" ");
     this.firstName = firstName;
+    this.middleName = middleName;
     this.lastName = lastName;
+
   });
 
 doctorSchema.virtual("patients", {

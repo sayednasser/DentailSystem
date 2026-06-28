@@ -24,7 +24,7 @@ export const resendConfirmEmail = {
 }
 export const ConfirmEmail = {
     body: ResendConfirmEmail.body.append({
-        otp: generalValidationFields.otp.required()
+        code: generalValidationFields.otp.required()
     })
 }
 

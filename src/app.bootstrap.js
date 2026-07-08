@@ -1,5 +1,5 @@
 import express from "express";
-import { adminRouter, authRouter, doctorRouter, patientRouter, userRouter } from "./module/index.js"
+import { adminRouter, appointmentRouter, authRouter, doctorRouter, patientRouter, ReviewRouter, userRouter } from "./module/index.js"
 import { PORT } from "../config/config.js";
 import { GlobalErrorHandler } from "./middleware/index.js";
 import { connectDB } from "./DB/Connection.DB.js";
@@ -30,7 +30,7 @@ export const bootstrap = async () => {
     };
 
     // Rate Limiter
-    const limiter = rateLimit({
+    const limiter = rateLimit({ 
         windowMs: 5 * 60 * 1000,
         max: 1000,
         message:
@@ -49,7 +49,9 @@ export const bootstrap = async () => {
     app.use("/auth", authRouter);
     app.use("/patient", patientRouter)
     app.use("/doctor", doctorRouter)
+    app.use("/appointment", appointmentRouter)
     app.use("/admin", adminRouter)
+    app.use("/review", ReviewRouter)
     app.get("/", (req, res) => {
         res.status(200).json("Hello world");
     })

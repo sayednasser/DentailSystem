@@ -21,7 +21,6 @@ export const createDoctor = async (inputs, admin) => {
     phone,
     age
   });
-  console.log({ doctorUser });
   await doctorModel.create({
     userId: doctorUser._id,
     specialization
@@ -71,8 +70,7 @@ export const getAllUsers = async () => {
   const doctorMap = new Map(
     doctors.map(d => [d.userId.toString(), d])
   );
-  console.log(doctors);
-  console.log(users);
+  
 
   return users.map(user => ({
     ...user,
@@ -131,16 +129,34 @@ export const getIncomeByDate = async (date) => {
 // 👥 delete USer
 // ================================
 
+
+
 export const deleteUser = async (id) => {
   const user = await userModel.findById(id);
 
   if (!user) {
     throw new Error("User not found");
   }
-
-  // منع حذف الأدمن
+ 
   if (user.role === RoleEnum.Admin) {
     throw new Error("Cannot delete admin");
+  }
+
+  // لو المستخدم دكتور
+  const doctor = await doctorModel.findOne({ userId: user._id });
+
+  if (doctor) {
+   const patientsCount = await patientModel.countDocuments({
+    doctorId: doctor.userId
+});
+
+    if (patientsCount > 0) {
+      throw new Error(
+        `لا يمكن حذف الدكتور لأنه مرتبط بـ ${patientsCount} مريض. قم بنقل المرضى إلى دكتور آخر أولاً.`
+      );
+    }
+
+    await doctor.deleteOne();
   }
 
   await user.deleteOne();
@@ -281,7 +297,6 @@ export const getDoctorPerformance = async () => {
 
   ])
 
-  console.log(JSON.stringify(result, null, 2))
 
   return result
 }

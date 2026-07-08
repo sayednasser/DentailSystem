@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
-import { patientModel, doctorModel,userModel } from "../../DB/model/index.js";
-import { NotFoundException } from "../../common/index.js";
+import { patientModel, doctorModel, userModel } from "../../DB/model/index.js";
+import { NotFoundException, StatusEnum } from "../../common/index.js";
 
 
 // =======================================
@@ -28,17 +28,17 @@ export const updateDoctorProfile = async (user, inputs) => {
     throw NotFoundException({ message: "Doctor not found" });
   }
 
-  
+
   const userData = {};
   if (inputs.phone) userData.phone = inputs.phone;
   if (inputs.fullName) {
-      const names = inputs.fullName.split(" ");
-      userData.firstName = names[0];
-      userData.lastName = names.slice(1).join(" ");
+    const names = inputs.fullName.split(" ");
+    userData.firstName = names[0];
+    userData.lastName = names.slice(1).join(" ");
   }
 
   if (Object.keys(userData).length > 0) {
-      await userModel.findByIdAndUpdate(user._id, userData);
+    await userModel.findByIdAndUpdate(user._id, userData);
   }
 
   // 3. تحديث بيانات الدكتور (في Doctor Model)
@@ -159,12 +159,37 @@ export const updatePatientNotes = async (
 // =======================================
 export const getDoctorStats = async (userId) => {
   const doctor = await doctorModel.findOne({ userId });
-  if (!doctor) throw NotFoundException({ message: "Doctor not found" });
 
-  const [patientsCount, earningsResult] = await Promise.all([
-    patientModel.countDocuments({ doctorId: doctor.userId }),
+  if (!doctor) {
+    throw NotFoundException({
+      message: "Doctor not found"
+    });
+  }
+
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const endOfDay = new Date();
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const [
+    patientsCount,
+    earningsResult,
+    todayPatients
+  ] = await Promise.all([
+
+    // إجمالي مرضى الدكتور
+    patientModel.countDocuments({
+      doctorId: doctor.userId
+    }),
+
+    // الحسابات المالية (بدون أي تغيير)
     patientModel.aggregate([
-      { $match: { doctorId: doctor.userId } },
+      {
+        $match: {
+          doctorId: doctor.userId
+        }
+      },
       {
         $group: {
           _id: null,
@@ -175,22 +200,52 @@ export const getDoctorStats = async (userId) => {
       {
         $project: {
           totalIncome: 1,
-          // الحساب الصحيح للمتبقي باستخدام القيم الفعلية
-          totalRemaining: { $subtract: ["$totalCost", "$totalIncome"] },
-          // حساب حصة الدكتور (استخدام النسبة المخزنة في الدكتور أو ثابتة 0.4)
-          doctorShare: { $multiply: ["$totalIncome", 0.4] }
+          totalRemaining: {
+            $subtract: ["$totalCost", "$totalIncome"]
+          },
+          doctorShare: {
+            $multiply: ["$totalIncome", 0.4]
+          }
         }
       }
-    ])
+    ]),
+
+    // مرضى اليوم من جدول الزيارات
+    patientModel.find({
+      doctorId: doctor.userId,
+      visits: {
+        $elemMatch: {
+          visitDate: {
+            $gte: startOfDay,
+            $lte: endOfDay
+          }
+        }
+      }
+    })
+      .select(
+        "firstName middleName lastName diagnosis status totalCost costPaid visits"
+      )
+      .sort({ updatedAt: -1 })
   ]);
 
-  const earnings = earningsResult[0] || { totalIncome: 0, totalRemaining: 0, doctorShare: 0 };
+  const earnings = earningsResult[0] || {
+    totalIncome: 0,
+    totalRemaining: 0,
+    doctorShare: 0
+  };
 
   return {
     patients: patientsCount,
+
     totalIncome: earnings.totalIncome,
+
     doctorShare: earnings.doctorShare,
-    remaining: earnings.totalRemaining
+
+    remaining: earnings.totalRemaining,
+
+    todayPatientsCount: todayPatients.length,
+
+    todayPatients
   };
 };
 
@@ -203,24 +258,191 @@ export const getDoctorDashboard = async (userId) => {
   const doctor = await doctorModel.findOne({ userId });
 
   if (!doctor) {
-    throw NotFoundException({ message: "Doctor not found" });
+    throw NotFoundException({
+      message: "Doctor not found"
+    });
   }
 
-  const [stats, recentPatients] = await Promise.all([
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
 
-    getDoctorStats(userId),
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+
+  let activePatient = await patientModel.findOne({
+    doctorId: doctor.userId,
+    status: "active",
+    visits: {
+      $elemMatch: {
+        visitDate: {
+          $gte: start,
+          $lte: end
+        }
+      }
+    }
+  });
+
+  if (!activePatient) {
+
+    activePatient = await patientModel.findOne({
+      doctorId: doctor.userId,
+      status: "pending",
+      visits: {
+        $elemMatch: {
+          visitDate: {
+            $gte: start,
+            $lte: end
+          }
+        }
+      }
+    }).sort({
+      "visits.visitDate": 1
+    });
+
+    if (activePatient) {
+      activePatient.status = "active";
+      await activePatient.save();
+    }
+  } 
+
+  const query = {
+    doctorId: doctor.userId,
+    status: {
+      $in: [
+        StatusEnum.pending,
+        StatusEnum.active
+      ]
+    },
+    visits: {
+      $elemMatch: {
+        visitDate: {
+          $gte: start,
+          $lte: end
+        }
+      }
+    }
+  };
+
+  const [todayPatients, todayPatientsCount] = await Promise.all([
 
     patientModel
-      .find({
-        doctorId: doctor.userId
-      })
-      .sort({ createdAt: -1 })
-      .limit(5)
+      .find(query)
+      .sort({ "visits.visitDate": 1 })
+      .limit(6),
+
+    patientModel.countDocuments(query)
 
   ]);
 
   return {
-    stats,
-    recentPatients
+    todayPatients,
+    todayPatientsCount
+  };
+};
+
+export const getAllDoctors = async () => {
+  const doctors = await doctorModel
+    .find()
+    .populate("userId", "firstName middleName lastName");
+
+  return doctors;
+}
+
+
+
+
+// =======================================
+// 📊 DOCTOR workingHours 
+// =======================================
+
+export const updateWorkingHours = async (doctorId, workingHours) => {
+
+  const doctor = await doctorModel.findOne({ userId: doctorId });
+
+  if (!doctor) {
+    throw NotFoundException({
+      message: "Doctor not found",
+    });
+  }
+
+  doctor.workingHours = workingHours;
+
+  await doctor.save();
+
+  return doctor;
+};
+
+// =======================================
+// ✅ COMPLETE PATIENT
+// =======================================
+export const completePatient = async (userId, patientId) => {
+
+  const doctor = await doctorModel.findOne({ userId });
+
+  if (!doctor) {
+    throw NotFoundException({
+      message: "Doctor not found"
+    });
+  }
+
+  // إنهاء المريض الحالي
+  const patient = await patientModel.findOneAndUpdate(
+    {
+      _id: patientId,
+      doctorId: doctor.userId,
+      status: StatusEnum.active
+    },
+    {
+      status: StatusEnum.completed
+    },
+    {
+      new: true
+    }
+  );
+
+  if (!patient) {
+    throw NotFoundException({
+      message: "Patient not found"
+    });
+  }
+
+  // حدود اليوم
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+
+  // البحث عن أول مريض في الانتظار
+  const nextPatient = await patientModel.findOne({
+    doctorId: doctor.userId,
+    status: StatusEnum.pending,
+    visits: {
+      $elemMatch: {
+        visitDate: {
+          $gte: start,
+          $lte: end
+        }
+      }
+    }
+  }).sort({
+    "visits.visitDate": 1
+  });
+
+  // تفعيل المريض التالي إن وجد
+  if (nextPatient) {
+    await patientModel.updateOne(
+      { _id: nextPatient._id },
+      {
+        status: StatusEnum.active
+      }
+    );
+
+    nextPatient.status = StatusEnum.active;
+  }
+
+  return {
+    completedPatient: patient,
+    currentPatient: nextPatient
   };
 };

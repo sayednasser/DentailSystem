@@ -1,11 +1,14 @@
 import {
   ConflictException,
   NotFoundException,
-  RoleEnum
+  RoleEnum,
+  StatusEnum,
+  uploadFiles
 } from "../../common/index.js";
 
 import { patientModel } from "../../DB/model/Patient.model.js";
 import { doctorModel } from "../../DB/model/doctor.model.js";
+import { AppointmentModel } from "../../DB/model/appointment.model.js";
 
 
 
@@ -33,7 +36,7 @@ export const createPatient = async (inputs, user) => {
   const doctor = await doctorModel.findOne({ userId: doctorId });
   if (!doctor) throw NotFoundException({ message: "Doctor not found" });
 
-  return await patientModel.create({
+   const patient = await patientModel.create({
     fullName,
     address,
     phone,
@@ -44,8 +47,13 @@ export const createPatient = async (inputs, user) => {
     diagnosis,
     treatment,
     status,
-    visitDate,
-    nextVisit,
+    visits: [
+      {
+        visitDate: visitDate || new Date(),
+        createdBy: user._id
+      }
+    ],
+
     createdBy: user._id,
 
     totalCost: Number(totalCost),
@@ -62,65 +70,64 @@ export const createPatient = async (inputs, user) => {
         ]
         : [],
   });
+console.log(patient.visits[0])
+  return patient;
 };
 
 // =======================================
 // UPDATE PATIENT
 // =======================================
+
 export const updatePatient = async (patientId, inputs, user) => {
   const patient = await patientModel.findById(patientId);
-
   if (!patient) {
     throw NotFoundException({
       message: "Patient not found"
     });
   }
-
   const checkPatient = await patientModel.findOne({
     phone: inputs.phone,
     _id: { $ne: patientId }
   });
-
   if (checkPatient) {
     throw ConflictException({
       message: "Patient already exists"
     });
   }
-
   const updateData = {
     ...inputs,
     updatedBy: user._id
   };
-
+  if (inputs.fullName) {
+    const parts = inputs.fullName.trim().split(/\s+/);
+    updateData.firstName = parts[0] || "";
+    updateData.middleName = parts[1] || "";
+    updateData.lastName = parts.slice(2).join(" ");
+    delete updateData.fullName;
+  }
   let paymentDifference = 0;
-
   if (
     inputs.totalCost !== undefined &&
     inputs.costPaid !== undefined
   ) {
     const newTotalCost = Number(inputs.totalCost);
     const newCostPaid = Number(inputs.costPaid);
-
     if (newCostPaid > newTotalCost) {
       throw ConflictException({
         message: "Cost paid can't be greater than total cost"
       });
     }
-
     paymentDifference =
       newCostPaid - Number(patient.costPaid || 0);
-
     updateData.totalCost = newTotalCost;
     updateData.costPaid = newCostPaid;
   }
-
   const updateQuery = {
     $set: updateData
   };
-
   if (paymentDifference > 0) {
     updateQuery.$push = {
-      payments: {
+      payment: {
         amount: paymentDifference,
         note: "Payment added from update",
         createdBy: user._id,
@@ -128,12 +135,16 @@ export const updatePatient = async (patientId, inputs, user) => {
       }
     };
   }
-
-  return await patientModel.findByIdAndUpdate(
+  const updatedPatient = await patientModel.findByIdAndUpdate(
     patientId,
     updateQuery,
-    { new: true }
+    {
+      new: true,
+      runValidators: true
+    }
   );
+
+  return updatedPatient;
 };
 // =======================================
 // ALL PATIENTS FOR DOCTOR
@@ -141,7 +152,7 @@ export const updatePatient = async (patientId, inputs, user) => {
 export const allPatient = async (user) => {
   const populateOptions = {
     path: "doctorId",
-    populate: { path: "doctorId", select: "firstName lastName email" }
+    select: "firstName middleName lastName email phone"
   };
 
   if (user.role === RoleEnum.Doctor) {
@@ -154,7 +165,6 @@ export const allPatient = async (user) => {
     return await patientModel.find().populate(populateOptions);
   }
 };
-
 // =======================================
 // SINGLE PATIENT
 // =======================================
@@ -162,9 +172,13 @@ export const singlePatient = async (patientId, user) => {
   const doctor = await doctorModel.findOne({ userId: user._id });
   if (!doctor) throw NotFoundException({ message: "Doctor not found" });
 
-  const patient = await patientModel.findOne({ _id: patientId, doctorId: doctor.userId })
-    .populate({ path: "doctorId", populate: { path: "userId", select: "firstName lastName email" } });
-
+  const patient = await patientModel.findOne({
+    _id: patientId,
+    doctorId: doctor.userId
+  }).populate({
+    path: "doctorId",
+    select: "firstName middleName lastName email phone"
+  });
   if (!patient) throw NotFoundException({ message: "Patient not found" });
   return patient;
 };
@@ -173,11 +187,14 @@ export const singlePatient = async (patientId, user) => {
 // DELETE PATIENT
 // =======================================
 export const deletePatient = async (patientId) => {
-  const deleted = await patientModel.findByIdAndDelete(patientId);
-  if (!deleted) throw NotFoundException({ message: "Patient not found" });
+  const patient = await patientModel.findById(patientId);
+  if (!patient) {
+    throw NotFoundException({ message: "Patient not found" });
+  }
+  await AppointmentModel.deleteMany({ patientId });
+  await patient.deleteOne();
   return { success: true };
 };
-
 // =======================================
 // 1) INCREASE TOTAL COST (without touching old value)
 // =======================================
@@ -246,45 +263,43 @@ export const addPayment = async (patientId, amount, note, user) => {
 // =======================================
 // SEARCH PATIENT
 // =======================================
-export const searchPatient = async (
-  keyword,
-  user
-) => {
-
-  const doctor = await doctorModel.findOne({
-    userId: user._id
-  });
-
-  if (!doctor) {
-    throw NotFoundException({
-      message: "Doctor not found"
-    });
-  }
-
-  return await patientModel.find({
-    doctorId: doctor.userId,
-
+export const searchPatient = async (keyword = "", user) => {
+  const filter = {
     $or: [
-      {
-        fullName: {
-          $regex: keyword,
-          $options: "i"
-        }
-      },
       {
         phone: {
           $regex: keyword,
-          $options: "i"
-        }
-      }
-    ]
-  });
+          $options: "i",
+        },
+      },
+      {
+        firstName: {
+          $regex: keyword,
+          $options: "i",
+        },
+      },
+      {
+        middleName: {
+          $regex: keyword,
+          $options: "i",
+        },
+      },
+      {
+        lastName: {
+          $regex: keyword,
+          $options: "i",
+        },
+      },
+    ],
+  };
+
+  // الدكتور يشوف مرضاه فقط
+  if (user.role === 2 || user.role === "doctor") {
+    filter.doctorId = user._id;
+  }
+
+  return await patientModel.find(filter).limit(20);
 };
-
-
-
-
-
 // =======================================
 // UPDATE STATUS
 // =======================================
@@ -315,10 +330,6 @@ export const updatePatientStatus = async (
     }
   );
 };
-
-
-
-
 // =======================================
 // UPDATE DIAGNOSIS
 // =======================================
@@ -351,8 +362,6 @@ export const updateDiagnosis = async (
     }
   );
 };
-
-
 // =======================================
 // UPDATE TREATMENT PLAN
 // =======================================
@@ -391,3 +400,111 @@ export const updateTreatmentPlan = async (
     });
   } return updated
 }
+// =======================================
+// Add Picture to Patient 
+// =======================================
+
+export const addPatientImages = async (files, patientId) => {
+
+  if (!files || files.length === 0) {
+    throw new Error("No files uploaded");
+  }
+
+  const patient = await patientModel.findById(patientId);
+
+  if (!patient) {
+    throw new NotFoundException("Patient not found");
+  }
+
+  const uploadedImages = await uploadFiles({
+    files,
+    folder: `clinic/patients/${patient._id}/images`
+  });
+  console.log("UPLOADED:", uploadedImages);
+
+  patient.images.push(...uploadedImages);
+  console.log("PATIENT IMAGES:", patient.images);
+
+  await patient.save();
+
+  return patient;
+};
+
+// =======================================
+// Get Picture to Patient 
+// =======================================
+export const getPatientImages = async (patientId) => {
+  const patient = await patientModel.findById(patientId);
+
+  if (!patient) {
+    throw new Error("Patient not found");
+  }
+
+  return patient.images;
+};
+
+// =======================================
+// CHECK IN PATIENT
+// =======================================
+export const checkInPatient = async (
+  patientId,
+  user
+) => {
+
+  const patient = await patientModel.findById(
+    patientId
+  );
+
+  if (!patient) {
+    throw NotFoundException({
+      message: "Patient not found"
+    });
+  }
+
+  return await patientModel.findByIdAndUpdate(
+    patientId,
+    {
+      visitDate: new Date(),
+      updatedBy: user._id
+    },
+    {
+      new: true
+    }
+  );
+};
+// =======================================
+// REGISTER FOLLOW-UP VISIT
+// =======================================
+
+export const registerFollowUpVisit = async (
+  patientId,
+  user
+) => {
+
+  const patient = await patientModel.findByIdAndUpdate(
+    patientId,
+    {
+      $push: {
+        visits: {
+          visitDate: new Date(),
+          createdBy: user._id
+        }
+      },
+      $set: {
+        status: StatusEnum.pending,
+        updatedBy: user._id
+      }
+    },
+    {
+      new: true
+    }
+  );
+
+  if (!patient) {
+    throw NotFoundException({
+      message: "Patient not found"
+    });
+  }
+
+  return patient;
+};

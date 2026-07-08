@@ -41,5 +41,5 @@ export const API_KEY=process.env.API_KEY
 export const API_SECRET=process.env.API_SECRET
 export const APPLICATION_NAME=process.env.APPLICATION_NAME
 
-export const CLIENT_ID=process.env.CLIENT_ID
-
+export const CLIENT_ID=process.env.CLIENT_ID 
+ 

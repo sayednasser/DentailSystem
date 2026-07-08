@@ -10,6 +10,8 @@ export const generalValidationFields = {
         role: joi.number(),
         age: joi.number().integer().min(1).max(120),
         FCM: joi.string(),
+        time: joi.string().pattern(/^([01]\d|2[0-3]):([0-5]\d)$/),
+        date: joi.date(),
         id: joi.string().custom((value, helper) => {
                 return Types.ObjectId.isValid(value) ? true : helper.message('invalid ObjectId')
         }),

@@ -19,10 +19,12 @@ const userSchema = new Schema({
         public_id: String 
 
     },
-    profileCoverPicture: {
-        public_id: String,
-        secure_url: String
+     profileCoverPicture: { 
+        secure_url: String,
+        public_id: String 
+
     },
+   
     oldPassword: [
         String
     ],
@@ -40,10 +42,7 @@ const userSchema = new Schema({
         enum: Object.values(ProviderEnum),
         default: ProviderEnum.System
     },
-    bio: {
-        type: String,
-        required: false
-    }
+   
 
 }, {
     timestamps: true,

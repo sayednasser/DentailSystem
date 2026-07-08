@@ -21,6 +21,7 @@ export const authentication = (tokenType = TokenTypeEnum.access) => {
         const { user, decode } = await decodedToken({ token: credentials, tokenType })
         req.user = user;
         req.decode = decode; 
+        
 
         break;
       default:

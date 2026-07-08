@@ -7,7 +7,10 @@ import {
   getDoctorStats,
   getDoctorDashboard,
   getDoctorProfile,
-  updateDoctorProfile
+  updateDoctorProfile,
+  updateWorkingHours,
+  getAllDoctors,
+  completePatient
 } from "./doctor.service.js";
 
 import * as validators from "./doctor.validation.js";
@@ -96,6 +99,66 @@ router.patch(
     const data = await updateDoctorProfile(
       req.user,
       req.body
+    );
+
+    return successResponse({
+      res,
+      data
+    });
+  }
+);
+
+// =======================================
+// 📊 DOCTOR workingHours 
+// =======================================
+
+router.put("/working-hours/:doctorId", authentication(),validation(validators.updateWorkingHoursValidation), async (req, res) => {
+
+  const { doctorId } = req.params;
+
+  const { workingHours } = req.body;
+
+  const data = await updateWorkingHours(
+    doctorId,
+    workingHours
+  );
+
+  return successResponse({
+    res,
+    status: 200,
+    data,
+  });
+
+});
+
+// =======================================
+// 📊 GIT ALL DOCTOR  
+// =======================================
+
+router.get(
+  "/all",
+  authentication(),
+  async (req, res) => {
+ const data = await getAllDoctors(req.user)
+    return successResponse({
+      res,
+      status: 200,
+      data,
+    });
+  }
+);
+
+// ================================
+// ✅ COMPLETE PATIENT
+// ================================
+router.patch(
+  "/patients/:patientId/complete",
+  authentication(),
+  async (req, res) => {
+
+    const data = await completePatient(
+      req.user._id,
+      req.params.patientId
     );
 
     return successResponse({

@@ -1,0 +1,1 @@
+export{default as ReviewRouter} from "./review.controller.js";

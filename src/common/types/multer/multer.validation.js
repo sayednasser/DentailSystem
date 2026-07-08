@@ -5,8 +5,14 @@ export const filedValidation = {
     pdf: ['application/pdf']
 }
 
-export const fileFilter = (validation=[]) => {
+export const fileFilter = (validation = []) => {
     return (req, file, cb) => {
+        console.log("FILE IN FILTER:", file);
+        console.log("FIELD:", file.fieldname);
+        console.log("MIME:", file.mimetype);
+        console.log("ALLOWED:", validation);
+
+
         const allowedTypes = validation.map(v => v.toLowerCase());
         if (!allowedTypes.includes(file.mimetype.toLowerCase())) {
             return cb(new Error("invalid file format", { cause: { status: 400 } }), false);

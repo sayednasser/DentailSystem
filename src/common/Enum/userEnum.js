@@ -17,3 +17,7 @@ export const StatusEnum = {
     completed: 'completed',
     inactive: 'inactive'
 }
+export const logoutEnum = {
+   All: 0,
+   one: 1
+}

@@ -1,0 +1,1 @@
+export {default as appointmentRouter} from "./appointment.controller.js";

@@ -4,7 +4,7 @@ import { ACCESS_EXPIRES_IN, REFRESH_EXPIRES_IN, SYSTEM_ACCESS_TOKEN_KEY, SYSTEM_
 import { AudienceEnum, RoleEnum, TokenTypeEnum } from "../Enum/index.js";
 import { redisClient } from "../../DB/Connection.redis.js";
 import { get, revokeTokenKey } from "./redis.service.js";
-import { ErrorException, ForbiddenException } from "../application/error.response.js";
+import { ErrorException, ForbiddenException ,NotFoundException} from "../application/error.response.js";
 import { userModel } from "../../DB/model/user.model.js";
 
 export const generateToken = ({ payload = {}, secret = USER_TOKEN_SECRET_KEY, options = {} } = {}) => {
@@ -125,7 +125,7 @@ export const decodedToken = async ({ token, tokenType = TokenTypeEnum.access } =
         _id: verifyData.sub,
     });
     if (!user) {
-        throw NotErrorException({ message: "user not found  you must signup" });
+        throw NotFoundException({ message: "user not found  you must signup" });
     }
 
     if (user.changeCredentialTime && user.changeCredentialTime?.getTime() >= decode.iat * 1000) {

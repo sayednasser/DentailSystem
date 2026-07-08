@@ -23,6 +23,20 @@ const paymentSchema = new mongoose.Schema(
   },
   { _id: false }
 );
+const visitSchema = new mongoose.Schema(
+  {
+    visitDate: {
+      type: Date,
+      default: Date.now
+    },
+
+    createdBy: {
+      type: Types.ObjectId,
+      ref: "User"
+    }
+  },
+  { _id: false }
+);
 
 const patientSchema = new mongoose.Schema(
   {
@@ -36,7 +50,7 @@ const patientSchema = new mongoose.Schema(
     age: Number,
     doctorId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "doctor",
+      ref: "User",
       required: true
     },
     gender: {
@@ -47,8 +61,7 @@ const patientSchema = new mongoose.Schema(
     diagnosis: String,
     treatment: String,
     notes: String,
-    visitDate: Date,
-    nextVisit: Date,
+   
     status: {
       type: String,
       enum: StatusEnum,
@@ -67,6 +80,7 @@ const patientSchema = new mongoose.Schema(
       default: 0,
       required: true
     },
+   visits: [visitSchema],
     payment: [paymentSchema],
     address: String,
     createdBy: {
@@ -77,7 +91,13 @@ const patientSchema = new mongoose.Schema(
     updatedBy: {
       type: Types.ObjectId,
       ref: "User"
-    }
+    },
+    images: [
+      {
+        public_id: String,
+        secure_url: String,
+      }
+    ]
   },
   {
     timestamps: true,

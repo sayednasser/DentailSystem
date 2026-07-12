@@ -144,18 +144,28 @@ router.get(
 );
 
 // ================================
-// ⚠️ DEBT PATIENTS
+// ⚠️ DEBT PATIENTS WITH PAGINATION
 // ================================
 router.get(
   "/alerts/debt",
   authentication(),
   authorization(endpoint.getAlerts),
   async (req, res) => {
-    const data = await adminService.getHighDebtPatients();
-    return successResponse({ res, data });
-  }
-);
 
+    const page = Number(req.query.page || 1)
+    const limit = Number(req.query.limit || 20)
+
+    const data = await adminService.getHighDebtPatients(
+      page,
+      limit
+    )
+
+    return successResponse({
+      res,
+      data
+    })
+  }
+)
 // ================================
 // 💰 RECENT PAYMENTS
 // ================================
@@ -175,7 +185,7 @@ router.get(
 router.post(
   "/expenses",
   authentication(),
-  authorization(endpoint.manageExpenses), 
+  authorization(endpoint.manageExpenses),
   async (req, res) => {
     const data = await adminService.createExpense(req.body, req.user);
 
@@ -184,7 +194,7 @@ router.post(
       status: 201,
       data,
     });
-  } 
+  }
 );
 // ================================
 //  get Expense

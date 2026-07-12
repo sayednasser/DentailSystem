@@ -149,21 +149,130 @@ export const updatePatient = async (patientId, inputs, user) => {
 // =======================================
 // ALL PATIENTS FOR DOCTOR
 // =======================================
-export const allPatient = async (user) => {
+  // export const allPatient = async (user, page = 1, limit = 20) => {
+  //   const populateOptions = {
+  //     path: "doctorId",
+  //     select: "firstName middleName lastName email phone"
+  //   };
+
+  //   const skip = (page - 1) * limit;
+
+  //   if (user.role === RoleEnum.Doctor) {
+  //     const doctor = await doctorModel.findOne({ userId: user._id });
+
+  //     if (!doctor) {
+  //       throw NotFoundException({ message: "Doctor not found" });
+  //     }
+
+  //     const filter = { doctorId: doctor.userId };
+
+  //     const [patients, total] = await Promise.all([
+  //       patientModel
+  //         .find(filter)
+  //         .populate(populateOptions)
+  //         .sort({ createdAt: -1 })
+  //         .skip(skip)
+  //         .limit(limit),
+
+  //       patientModel.countDocuments(filter)
+  //     ]);
+
+  //     return {
+  //       patients,
+  //       pagination: {
+  //         page,
+  //         limit,
+  //         total,
+  //         totalPages: Math.ceil(total / limit)
+  //       }
+  //     };
+  //   }
+
+  //   if (
+  //     user.role === RoleEnum.Admin ||
+  //     user.role === RoleEnum.Reception
+  //   ) {
+  //     const [patients, total] = await Promise.all([
+  //       patientModel
+  //         .find()
+  //         .populate(populateOptions)
+  //         .sort({ createdAt: -1 })
+  //         .skip(skip)
+  //         .limit(limit),
+
+  //       patientModel.countDocuments()
+  //     ]);
+
+  //     return {
+  //       patients,
+  //       pagination: {
+  //         page,
+  //         limit,
+  //         total,
+  //         totalPages: Math.ceil(total / limit)
+  //       }
+  //     };
+  //   }
+  // };
+  export const allPatient = async (
+  user,
+  page = 1,
+  limit = 20,
+  search = ""
+) => {
+
   const populateOptions = {
     path: "doctorId",
     select: "firstName middleName lastName email phone"
   };
 
-  if (user.role === RoleEnum.Doctor) {
-    const doctor = await doctorModel.findOne({ userId: user._id });
-    if (!doctor) throw NotFoundException({ message: "Doctor not found" });
-    return await patientModel.find({ doctorId: doctor.userId }).populate(populateOptions);
+  const skip = (page - 1) * limit;
+
+  const filter = {};
+
+  if (search?.trim()) {
+    filter.$or = [
+      { phone: { $regex: search, $options: "i" } },
+      { firstName: { $regex: search, $options: "i" } },
+      { middleName: { $regex: search, $options: "i" } },
+      { lastName: { $regex: search, $options: "i" } }
+    ];
   }
 
-  if (user.role === RoleEnum.Admin || user.role === RoleEnum.Reception) {
-    return await patientModel.find().populate(populateOptions);
+  if (user.role === RoleEnum.Doctor) {
+    const doctor = await doctorModel.findOne({
+      userId: user._id
+    });
+
+    if (!doctor) {
+      throw NotFoundException({
+        message: "Doctor not found"
+      });
+    }
+
+    filter.doctorId = doctor.userId;
   }
+
+  const [patients, total] = await Promise.all([
+    patientModel
+      .find(filter)
+      .populate(populateOptions)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+
+    patientModel.countDocuments(filter)
+  ]);
+
+  return {
+    patients,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit)
+    }
+  };
 };
 // =======================================
 // SINGLE PATIENT
@@ -263,43 +372,43 @@ export const addPayment = async (patientId, amount, note, user) => {
 // =======================================
 // SEARCH PATIENT
 // =======================================
-export const searchPatient = async (keyword = "", user) => {
-  const filter = {
-    $or: [
-      {
-        phone: {
-          $regex: keyword,
-          $options: "i",
-        },
-      },
-      {
-        firstName: {
-          $regex: keyword,
-          $options: "i",
-        },
-      },
-      {
-        middleName: {
-          $regex: keyword,
-          $options: "i",
-        },
-      },
-      {
-        lastName: {
-          $regex: keyword,
-          $options: "i",
-        },
-      },
-    ],
-  };
+// export const searchPatient = async (keyword = "", user) => {
+//   const filter = {
+//     $or: [
+//       {
+//         phone: {
+//           $regex: keyword,
+//           $options: "i",
+//         },
+//       },
+//       {
+//         firstName: {
+//           $regex: keyword,
+//           $options: "i",
+//         },
+//       },
+//       {
+//         middleName: {
+//           $regex: keyword,
+//           $options: "i",
+//         },
+//       },
+//       {
+//         lastName: {
+//           $regex: keyword,
+//           $options: "i",
+//         },
+//       },
+//     ],
+//   };
 
-  // الدكتور يشوف مرضاه فقط
-  if (user.role === 2 || user.role === "doctor") {
-    filter.doctorId = user._id;
-  }
+//   // الدكتور يشوف مرضاه فقط
+//   if (user.role === 2 || user.role === "doctor") {
+//     filter.doctorId = user._id;
+//   }
 
-  return await patientModel.find(filter).limit(20);
-};
+//   return await patientModel.find(filter).limit(20);
+// };
 // =======================================
 // UPDATE STATUS
 // =======================================

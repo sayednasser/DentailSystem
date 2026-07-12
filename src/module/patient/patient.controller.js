@@ -30,22 +30,22 @@ router.post(
 
 // =======================================
 // SEARCH PATIENT
-// =======================================
-router.get(
-  "/search",
-  authentication(),
-  async (req, res) => {
-    const data = await service.searchPatient(
-      req.query.keyword,
-      req.user
-    );
+// // =======================================
+// router.get(
+//   "/search",
+//   authentication(),
+//   async (req, res) => {
+//     const data = await service.searchPatient(
+//       req.query.keyword,
+//       req.user
+//     );
 
-    return successResponse({
-      res,
-      data,
-    });
-  }
-);
+//     return successResponse({
+//       res,
+//       data,
+//     });
+//   }
+// );
 
 // =======================================
 // GET ALL PATIENTS
@@ -54,11 +54,21 @@ router.get(
   "/",
   authentication(),
   async (req, res) => {
-    const data = await service.allPatient(req.user);
+
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 20;
+    const search = req.query.search || "";
+
+    const data = await service.allPatient(
+      req.user,
+      page,
+      limit,
+      search
+    );
 
     return successResponse({
       res,
-      data,
+      data
     });
   }
 );

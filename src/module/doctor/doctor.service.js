@@ -155,7 +155,7 @@ export const updatePatientNotes = async (
 
 
 // =======================================
-// 📊 DOCTOR STATS (المُصحح)
+// 📊 DOCTOR STATS 
 // =======================================
 export const getDoctorStats = async (userId) => {
   const doctor = await doctorModel.findOne({ userId });
@@ -303,7 +303,7 @@ export const getDoctorDashboard = async (userId) => {
       activePatient.status = "active";
       await activePatient.save();
     }
-  } 
+  }
 
   const query = {
     doctorId: doctor.userId,
@@ -333,12 +333,25 @@ export const getDoctorDashboard = async (userId) => {
     patientModel.countDocuments(query)
 
   ]);
+  console.log("================================");
+  console.log(
+    todayPatients.map(p => ({
+      name: p.firstName,
+      status: p.status,
+      doctorId: p.doctorId,
+      visits: p.visits
+    }))
+  );
 
   return {
     todayPatients,
     todayPatientsCount
   };
 };
+
+// =======================================
+// 📊  all DOCTOR 
+// =======================================
 
 export const getAllDoctors = async () => {
   const doctors = await doctorModel

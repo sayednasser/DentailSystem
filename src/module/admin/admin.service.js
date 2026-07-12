@@ -70,7 +70,7 @@ export const getAllUsers = async () => {
   const doctorMap = new Map(
     doctors.map(d => [d.userId.toString(), d])
   );
-  
+
 
   return users.map(user => ({
     ...user,
@@ -137,7 +137,7 @@ export const deleteUser = async (id) => {
   if (!user) {
     throw new Error("User not found");
   }
- 
+
   if (user.role === RoleEnum.Admin) {
     throw new Error("Cannot delete admin");
   }
@@ -146,9 +146,9 @@ export const deleteUser = async (id) => {
   const doctor = await doctorModel.findOne({ userId: user._id });
 
   if (doctor) {
-   const patientsCount = await patientModel.countDocuments({
-    doctorId: doctor.userId
-});
+    const patientsCount = await patientModel.countDocuments({
+      doctorId: doctor.userId
+    });
 
     if (patientsCount > 0) {
       throw new Error(
@@ -248,7 +248,7 @@ export const getDoctorPerformance = async () => {
           $concat: [
             { $ifNull: ["$user.firstName", ""] },
             " ",
-             { $ifNull: ["$user.middleName", ""] },
+            { $ifNull: ["$user.middleName", ""] },
             " ",
             { $ifNull: ["$user.lastName", ""] }
           ]
@@ -265,7 +265,7 @@ export const getDoctorPerformance = async () => {
         doctorPercentage: "$doctor.doctorPercentage",
 
         doctorTotalRights: {
-          $multiply: [ 
+          $multiply: [
             "$totalCost",
             { $divide: ["$doctor.doctorPercentage", 100] }
           ]
@@ -319,12 +319,39 @@ export const getMonthlyRevenue = async () => {
 // ================================
 // ⚠️ DEBT PATIENTS (الديون)
 // ================================
-export const getHighDebtPatients = async () => {
-  return await patientModel.find({
-    $expr: { $gt: ["$totalCost", "$costPaid"] }
-  }).limit(10);
-};
+export const getHighDebtPatients = async (
+  page = 1,
+  limit = 20
+) => {
 
+  page = Number(page)
+  limit = Number(limit)
+
+  const filter = {
+    $expr: {
+      $gt: ["$totalCost", "$costPaid"]
+    }
+  }
+
+  const total = await patientModel.countDocuments(filter)
+
+  const patients = await patientModel
+    .find(filter)
+    .populate("doctorId")
+    .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit)
+
+  return {
+    patients,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit)
+    }
+  }
+}
 // ================================
 // 💰 RECENT PAYMENTS
 // ================================

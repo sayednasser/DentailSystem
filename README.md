@@ -169,7 +169,7 @@ Refresh Token
 Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/dental-clinic-backend.git
+git clone https://github.com/sayednasser/DentailSystem.git
 ```
 
 Install dependencies
@@ -181,13 +181,13 @@ npm install
 Development
 
 ```bash
-npm run dev
+npm run start:dev
 ```
 
 Production
 
 ```bash
-npm start
+npm run start:prod
 ```
 
 ---

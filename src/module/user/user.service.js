@@ -47,7 +47,7 @@ export const rotateToken = async (user, { jti, iat }, issuer) => {
     await set({
         key: revokeTokenKey({ userId: user._id, jti }),
         value: jti,
-        ttl: iat + ACCESS_EXPIRES_IN
+        ttl: ACCESS_EXPIRES_IN
     })
 
     return await createLoginCredentials(user, issuer)
@@ -68,7 +68,7 @@ export const logout = async (body = {}, user, { jti, iat }) => {
             await set({
                 key: revokeTokenKey({ userId: user._id, jti }),
                 value: jti,
-                ttl: iat + REFRESH_EXPIRES_IN,
+                ttl: REFRESH_EXPIRES_IN,
             });
 
             status = 201;

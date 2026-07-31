@@ -1,6 +1,7 @@
 import joi from "joi"
 import { generalValidationFields } from "../../common/validation.js"
 import { filedValidation } from "../../common/types/multer/multer.validation.js"
+import { logoutEnum } from "../../common/Enum/userEnum.js"
 
 export const shareProfile = {
     params: joi.object().keys({
@@ -18,6 +19,11 @@ export const profileAttachment = {
         coverImage: joi.array().items(generalValidationFields.file(filedValidation.image).required()).min(1).required(),
         profileImage: joi.array().ordered(generalValidationFields.file(filedValidation.image).required()).length(1).required()
     }).required()
+}
+export const logout = {
+    body: joi.object().keys({
+        flag: joi.number().valid(...Object.values(logoutEnum)).optional()
+    }).optional()
 }
 export const updatePassword = {
     body: joi.object().keys({

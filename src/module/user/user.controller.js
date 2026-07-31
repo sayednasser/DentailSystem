@@ -17,7 +17,7 @@ router.patch("/profile-picture", authentication(), uploadCloud({ validation: fil
     const data = await profilePicture(req.file, req.user)
     return successResponse({ res, status: 200, data }); 
 });
-router.post("/logout", authentication(), async (req, res, next) => {
+router.post("/logout", authentication(), validation(validators.logout), async (req, res, next) => {
     const status = await logout(req.body, req.user, req.decode)
     return successResponse({ res, status })
 })

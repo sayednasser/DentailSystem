@@ -62,7 +62,7 @@ export const createLoginCredentials = async (user, issuer) => {
 
         }
     })
-    const RefreshToken = await generateToken({
+    const refreshToken = await generateToken({
         payload: { sub: user._id.toString() },
         secret: refreshSignature,
         options: {
@@ -75,7 +75,7 @@ export const createLoginCredentials = async (user, issuer) => {
     })
     return {
         accessToken,
-        RefreshToken
+        refreshToken
     }
 
 

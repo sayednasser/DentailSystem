@@ -1,4 +1,4 @@
-import { CLIENT_ID } from "../../../config/config.js";
+    import { CLIENT_ID } from "../../../config/config.js";
 import { blockLogin, blockOtpKey, comparePassword, ConflictException, createLoginCredentials, deleteKey, emailEnum, encrypt, ErrorException, ForbiddenException, get, hashPassword, incr, keys, maxAttemptOtpKey, maxLoginAttempt, NotFoundException, otpKey, ProviderEnum, revokeTokenBaseKey, set, ttl } from "../../common/index.js";
 import { emailEvent } from "../../common/types/email/event.email.js";
 import { sendEmail } from "../../common/types/email/sendEmail.js";

@@ -4,11 +4,11 @@ import joi from "joi";
 
 export const login = {
     body: joi.object().keys({
-        email: generalValidationFields.email,
-        password: generalValidationFields.password,
+        email: generalValidationFields.email.required(),
+        password: generalValidationFields.password.required(),
         FCM: generalValidationFields.FCM
 
-    })
+    }).required()
 }
 
 

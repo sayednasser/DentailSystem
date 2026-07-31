@@ -7,6 +7,8 @@ import { connectRedis } from "./DB/Connection.redis.js";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import cors from "cors";
+import swaggerUi from "swagger-ui-express";
+import swaggerSpec from "./config/swagger.js";
 
 
 const app = express();
@@ -30,7 +32,7 @@ export const bootstrap = async () => {
     };
 
     // Rate Limiter
-    const limiter = rateLimit({ 
+    const limiter = rateLimit({
         windowMs: 5 * 60 * 1000,
         max: 1000,
         message:
@@ -59,11 +61,14 @@ export const bootstrap = async () => {
     app.get("/", (req, res) => {
         res.json({ message: "API Running" });
     });
+    app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
 
     app.all("{/*dummy}", (req, res) => {
         res.status(404).json("Route not found");
     })
     app.use((GlobalErrorHandler))
+
 
     app.listen(PORT, "0.0.0.0", () => {
         console.log(
